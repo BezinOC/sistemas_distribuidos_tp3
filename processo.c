@@ -3,10 +3,18 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 #include <time.h>
+#include <pthread.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+
+typedef struct {
+    int thread_id;
+    int r;
+    int k;
+} ThreadArgs;
 
 void writeToFile(int pid, int number, const char* response) {
     FILE* file = fopen("client_log.txt", "a");
@@ -15,20 +23,32 @@ void writeToFile(int pid, int number, const char* response) {
         return;
     }
 
-    time_t now;
-    time(&now);
-    char* timeStr = ctime(&now);
-    timeStr[strlen(timeStr) - 1] = '\0'; // Remove newline from the time string
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
 
-    fprintf(file, "PID: %d, Number Sent: %d, Time: %s, Response: %s\n", pid, number, timeStr, response);
+    // Format the time as HH:MM:SS:MS
+    char timeStr[30];
+    strftime(timeStr, sizeof(timeStr), "%H:%M:%S:", localtime(&tv.tv_sec));
+    sprintf(timeStr + strlen(timeStr), "%03ld", tv.tv_usec / 1000);
+
+    // Format the date as DD/MM/YYYY
+    char dateStr[20];
+    strftime(dateStr, sizeof(dateStr), "%d/%m/%Y", localtime(&tv.tv_sec));
+
+    fprintf(file, "PID: %d, Number Sent: %d, Time: %s %s, Response: %s\n",
+            pid, number, timeStr, dateStr, response);
+
     fclose(file);
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s <number1> <number2> <number3> <number4> <number5>\n", argv[0]);
-        return 1;
-    }
+void* client_thread(void* arg) {
+    ThreadArgs* thread_args = (ThreadArgs*)arg;
+    int thread_id = thread_args->thread_id;
+    int r = thread_args->r;
+    int k = thread_args->k;
+    int pid = getpid();
+
+    srand(time(NULL) ^ (pid << 16)); // Seed the random number generator with PID
 
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
@@ -37,7 +57,7 @@ int main(int argc, char* argv[]) {
     // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket failed");
-        exit(EXIT_FAILURE);
+        pthread_exit(NULL);
     }
 
     serv_addr.sin_family = AF_INET;
@@ -46,44 +66,82 @@ int main(int argc, char* argv[]) {
     // Convert IP address from text to binary form
     if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
         perror("Invalid address/ Address not supported");
-        exit(EXIT_FAILURE);
+        close(sock);
+        pthread_exit(NULL);
     }
 
     // Connect to the server
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         perror("Connection failed");
-        exit(EXIT_FAILURE);
+        close(sock);
+        pthread_exit(NULL);
     }
 
-    printf("Connected to server\n");
+    printf("Thread %d (PID: %d) connected to server\n", thread_id, pid);
 
-    for (int i = 1; i < argc; i++) {
-        int number = atoi(argv[i]);
+    for (int i = 0; i < r; i++) {
+        int number = rand() % 20 + 1; // Generate a random number between 1 and 20
 
-        // Send each number to the server
+        // Send the number to the server
         sprintf(buffer, "%d", number);
         if (write(sock, buffer, strlen(buffer)) < 0) {
             perror("write failed");
-            exit(EXIT_FAILURE);
+            close(sock);
+            pthread_exit(NULL);
         }
 
-        printf("Number sent: %d\n", number);
+        printf("Thread %d (PID: %d) sent number: %d\n", thread_id, pid, number);
 
         // Read the response from the server
         if ((valread = read(sock, buffer, BUFFER_SIZE)) < 0) {
             perror("read failed");
-            exit(EXIT_FAILURE);
+            close(sock);
+            pthread_exit(NULL);
         }
 
         buffer[valread] = '\0';
-        printf("Server response: %s\n", buffer);
+        printf("Thread %d (PID: %d) server response: %s\n", thread_id, pid, buffer);
 
         // Write PID, number sent, and current time to the file
-        writeToFile(getpid(), number, buffer);
+        writeToFile(pid, number, buffer);
 
-        sleep(3); // Wait for 3 seconds before sending the next number
+        sleep(k); // Wait for k seconds before sending the next number
     }
 
     close(sock);
+    pthread_exit(NULL);
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 4) {
+        printf("Usage: %s <n (number of clients)> <r (number of file writings)> <k (number of seconds between each request)>\n", argv[0]);
+        return 1;
+    }
+
+    int n = atoi(argv[1]);
+    int r = atoi(argv[2]);
+    int k = atoi(argv[3]);
+
+    pthread_t threads[n];
+    ThreadArgs thread_args[n];
+
+    for (int i = 0; i < n; i++) {
+        thread_args[i].thread_id = i + 1;
+        thread_args[i].r = r;
+        thread_args[i].k = k;
+
+        if (pthread_create(&threads[i], NULL, client_thread, &thread_args[i]) != 0) {
+            perror("pthread_create");
+            return 1;
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            perror("pthread_join");
+            return 1;
+        }
+    }
+
     return 0;
 }

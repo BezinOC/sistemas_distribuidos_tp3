@@ -1,5 +1,7 @@
-PID: 1347, Number Sent: 10, Time: Sat Jul 15 18:08:37 2023, Response: Even
-PID: 1347, Number Sent: 11, Time: Sat Jul 15 18:08:40 2023, Response: Odd
-PID: 1347, Number Sent: 12, Time: Sat Jul 15 18:08:43 2023, Response: Even
-PID: 1347, Number Sent: 13, Time: Sat Jul 15 18:08:46 2023, Response: Odd
-PID: 1347, Number Sent: 14, Time: Sat Jul 15 18:08:49 2023, Response: Even
+PID: 2070, Number Sent: 13, Time: 18:33:16:882 15/07/2023, Response: 13
+PID: 2070, Number Sent: 11, Time: 18:33:19:894 15/07/2023, Response: 11
+PID: 2070, Number Sent: 20, Time: 18:33:22:910 15/07/2023, Response: 20
+PID: 2070, Number Sent: 9, Time: 18:33:25:921 15/07/2023, Response: 9
+PID: 2070, Number Sent: 17, Time: 18:33:28:932 15/07/2023, Response: 17
+PID: 2070, Number Sent: 15, Time: 18:33:31:944 15/07/2023, Response: 15
+PID: 2070, Number Sent: 12, Time: 18:33:34:958 15/07/2023, Response: 12
