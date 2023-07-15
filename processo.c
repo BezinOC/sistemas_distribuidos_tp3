@@ -3,12 +3,29 @@
 #include <unistd.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
-int main(int argc, char *argv[]) {
-    if (argc < 6) {
+void writeToFile(int pid, int number, const char* response) {
+    FILE* file = fopen("client_log.txt", "a");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
+    }
+
+    time_t now;
+    time(&now);
+    char* timeStr = ctime(&now);
+    timeStr[strlen(timeStr) - 1] = '\0'; // Remove newline from the time string
+
+    fprintf(file, "PID: %d, Number Sent: %d, Time: %s, Response: %s\n", pid, number, timeStr, response);
+    fclose(file);
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
         printf("Usage: %s <number1> <number2> <number3> <number4> <number5>\n", argv[0]);
         return 1;
     }
@@ -43,7 +60,7 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; i++) {
         int number = atoi(argv[i]);
 
-        // Send the number to the server
+        // Send each number to the server
         sprintf(buffer, "%d", number);
         if (write(sock, buffer, strlen(buffer)) < 0) {
             perror("write failed");
@@ -60,6 +77,9 @@ int main(int argc, char *argv[]) {
 
         buffer[valread] = '\0';
         printf("Server response: %s\n", buffer);
+
+        // Write PID, number sent, and current time to the file
+        writeToFile(getpid(), number, buffer);
 
         sleep(3); // Wait for 3 seconds before sending the next number
     }

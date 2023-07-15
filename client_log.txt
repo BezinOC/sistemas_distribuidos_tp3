@@ -1,0 +1,5 @@
+PID: 1347, Number Sent: 10, Time: Sat Jul 15 18:08:37 2023, Response: Even
+PID: 1347, Number Sent: 11, Time: Sat Jul 15 18:08:40 2023, Response: Odd
+PID: 1347, Number Sent: 12, Time: Sat Jul 15 18:08:43 2023, Response: Even
+PID: 1347, Number Sent: 13, Time: Sat Jul 15 18:08:46 2023, Response: Odd
+PID: 1347, Number Sent: 14, Time: Sat Jul 15 18:08:49 2023, Response: Even

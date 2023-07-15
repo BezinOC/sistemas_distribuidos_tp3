@@ -13,20 +13,32 @@ void *handle_client(void *socket_desc) {
     char buffer[1024] = {0};
     int valread;
 
-    while ((valread = read(client_socket, buffer, 1024)) > 0) {
-        printf("Client sent: %s\n", buffer);
-        // Add your processing logic here
-        // ...
+    while (1) {
+        // Receive the number from the client
+        if ((valread = read(client_socket, buffer, sizeof(buffer))) <= 0) {
+            if (valread == 0) {
+                printf("Client disconnected\n");
+            } else {
+                perror("read");
+            }
+            break; // Exit the loop on read error or disconnection
+        }
 
-        // Echo the message back to the client
-        write(client_socket, buffer, strlen(buffer));
+        int number = atoi(buffer);
+        printf("Client sent: %d\n", number);
+
+        // Determine if the number is even or odd
+        char response[1024];
+        if (number % 2 == 0) {
+            strcpy(response, "Even");
+        } else {
+            strcpy(response, "Odd");
+        }
+
+        // Send the response back to the client
+        write(client_socket, response, strlen(response));
+
         memset(buffer, 0, sizeof(buffer));
-    }
-
-    if (valread == 0) {
-        printf("Client disconnected\n");
-    } else {
-        perror("read");
     }
 
     close(client_socket);
