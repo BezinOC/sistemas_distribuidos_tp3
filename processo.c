@@ -105,7 +105,8 @@ void* client_thread(void* arg) {
             pthread_exit(NULL);
         }
 
-        printf("Thread %d (PID: %d) sent number: %d\n", thread_id, pid, number);
+        // Write PID, number sent, and request mensage to server to the file
+        write_to_file(pid, number, "REQUEST");
 
         // Receive the GRANT message from the server
         Message grant_message;
@@ -118,12 +119,17 @@ void* client_thread(void* arg) {
         // Check if the received message is a GRANT message
         if (grant_message.type != GRANT_MESSAGE_TYPE) {
             printf("Thread %d (PID: %d) received an unexpected message\n", thread_id, pid);
+            printf("%c\n",grant_message.type);
             close(sock);
             pthread_exit(NULL);
         }
 
         printf("Thread %d (PID: %d) received GRANT message from server\n", thread_id, pid);
 
+        // Write PID, number sent, and server response to the file
+        write_to_file(pid, number, "GRANT");
+
+        
         // Simulate the critical section by sleeping for a random time
         sleep(k);
 
@@ -141,10 +147,9 @@ void* client_thread(void* arg) {
 
         printf("Thread %d (PID: %d) sent RELEASE message\n", thread_id, pid);
 
-        // Write PID, number sent, and server response to the file
-        write_to_file(pid, number, "GRANT");
-
-        sleep(k); // Wait for k seconds before sending the next number
+        // Write PID, number sent, and request mensage to server to the file
+        write_to_file(pid, number, "RELEASE");
+        
     }
 
     close(sock);

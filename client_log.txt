@@ -1,0 +1,15 @@
+PID: 14173, Number Sent: 17, Time: 16:35:13:632 16/07/2023, Response: REQUEST
+PID: 14173, Number Sent: 7, Time: 16:35:13:632 16/07/2023, Response: REQUEST
+PID: 14173, Number Sent: 7, Time: 16:35:13:632 16/07/2023, Response: GRANT
+PID: 14173, Number Sent: 7, Time: 16:35:15:632 16/07/2023, Response: RELEASE
+PID: 14173, Number Sent: 6, Time: 16:35:15:633 16/07/2023, Response: REQUEST
+PID: 14699, Number Sent: 17, Time: 16:38:38:582 16/07/2023, Response: REQUEST
+PID: 14699, Number Sent: 5, Time: 16:38:38:582 16/07/2023, Response: REQUEST
+PID: 14699, Number Sent: 17, Time: 16:38:38:582 16/07/2023, Response: GRANT
+PID: 14699, Number Sent: 17, Time: 16:38:40:582 16/07/2023, Response: RELEASE
+PID: 14699, Number Sent: 11, Time: 16:38:40:583 16/07/2023, Response: REQUEST
+PID: 15619, Number Sent: 5, Time: 16:44:58:172 16/07/2023, Response: REQUEST
+PID: 15619, Number Sent: 1, Time: 16:44:58:172 16/07/2023, Response: REQUEST
+PID: 15619, Number Sent: 1, Time: 16:44:58:172 16/07/2023, Response: GRANT
+PID: 15619, Number Sent: 1, Time: 16:45:00:173 16/07/2023, Response: RELEASE
+PID: 15619, Number Sent: 5, Time: 16:45:00:173 16/07/2023, Response: REQUEST

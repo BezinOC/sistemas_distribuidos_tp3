@@ -12,12 +12,13 @@
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
 #define RELEASE_MESSAGE_TYPE '3'
+int flag = 0;
 
 // Estrutura de mensagem
 typedef struct {
     char type;
     char process_id;
-    char padding[MESSAGE_SIZE - 3]; // Tamanho fixo da mensagem
+    char padding[MESSAGE_SIZE]; // Tamanho fixo da mensagem
 } Message;
 
 // Estrutura de fila de pedidos
@@ -34,6 +35,7 @@ typedef struct {
 } AccessStats;
 
 pthread_mutex_t queue_mutex; // Mutex para acessar a fila de pedidos
+pthread_mutex_t rc_mutex; // Mutex para acessar acessar rc
 pthread_mutex_t stats_mutex; // Mutex para acessar as estatísticas de acesso
 RequestQueue request_queue;   // Fila de pedidos
 AccessStats access_stats;     // Estatísticas de acesso
@@ -101,10 +103,25 @@ void *handle_client(void *socket_desc) {
 
         // Process the message based on its type
         switch (message.type) {
+            
             case REQUEST_MESSAGE_TYPE:
                 pthread_mutex_lock(&queue_mutex);
                 enqueue_request(&request_queue, message);
+                pthread_mutex_lock(&rc_mutex);
+                if (!flag) {
+                    flag = 1;
+                    Message next_request = dequeue_request(&request_queue);
+                    Message grant_message;
+                    // Create the Grant message
+                    grant_message.type = GRANT_MESSAGE_TYPE;
+                    grant_message.process_id = next_request.process_id; // Convert the thread ID to char
+                    // Send a GRANT message to the next process in the queue
+                    write(client_socket, &grant_message, sizeof(next_request));
+
+                    printf("Sent GRANT message to Process %c\n", next_request.process_id);
+                }
                 pthread_mutex_unlock(&queue_mutex);
+                pthread_mutex_lock(&rc_mutex);
                 break;
 
             case RELEASE_MESSAGE_TYPE:
@@ -112,14 +129,23 @@ void *handle_client(void *socket_desc) {
                 pthread_mutex_lock(&stats_mutex);
                 increment_access_count(&access_stats, message.process_id);
                 pthread_mutex_unlock(&stats_mutex);
+                pthread_mutex_lock(&rc_mutex);
+                flag = 0;
                 // Process the next request in the queue, if any
                 if (!is_request_queue_empty(&request_queue)) {
                     Message next_request = dequeue_request(&request_queue);
+                    Message grant_message;
+                    // Create the Grant message
+                    grant_message.type = GRANT_MESSAGE_TYPE;
+                    grant_message.process_id = next_request.process_id; // Convert the thread ID to char
                     // Send a GRANT message to the next process in the queue
-                    write(client_socket, &next_request, sizeof(next_request));
+                    write(client_socket, &grant_message, sizeof(next_request));
                     printf("Sent GRANT message to Process %c\n", next_request.process_id);
                 }
+
                 pthread_mutex_unlock(&queue_mutex);
+                pthread_mutex_unlock(&rc_mutex);
+                
                 break;
         }
 
