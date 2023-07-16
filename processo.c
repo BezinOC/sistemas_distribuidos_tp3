@@ -9,6 +9,11 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
+#define MESSAGE_SIZE 10
+#define SEPARATOR '|'
+#define REQUEST_MESSAGE_TYPE '1'
+#define GRANT_MESSAGE_TYPE '2'
+#define RELEASE_MESSAGE_TYPE '3'
 
 typedef struct {
     int thread_id;
@@ -16,7 +21,13 @@ typedef struct {
     int k;
 } ThreadArgs;
 
-void writeToFile(int pid, int number, const char* response) {
+typedef struct {
+    char type;
+    char process_id;
+    char padding[MESSAGE_SIZE - 3];
+} Message;
+
+void write_to_file(int pid, int number, const char* response) {
     FILE* file = fopen("client_log.txt", "a");
     if (file == NULL) {
         perror("Error opening file");
@@ -82,9 +93,13 @@ void* client_thread(void* arg) {
     for (int i = 0; i < r; i++) {
         int number = rand() % 20 + 1; // Generate a random number between 1 and 20
 
-        // Send the number to the server
-        sprintf(buffer, "%d", number);
-        if (write(sock, buffer, strlen(buffer)) < 0) {
+        // Create the REQUEST message
+        Message request_message;
+        request_message.type = REQUEST_MESSAGE_TYPE;
+        request_message.process_id = thread_id + '0'; // Convert the thread ID to char
+
+        // Send the REQUEST message to the server
+        if (write(sock, &request_message, sizeof(request_message)) < 0) {
             perror("write failed");
             close(sock);
             pthread_exit(NULL);
@@ -92,18 +107,42 @@ void* client_thread(void* arg) {
 
         printf("Thread %d (PID: %d) sent number: %d\n", thread_id, pid, number);
 
-        // Read the response from the server
-        if ((valread = read(sock, buffer, BUFFER_SIZE)) < 0) {
+        // Receive the GRANT message from the server
+        Message grant_message;
+        if ((valread = read(sock, &grant_message, sizeof(grant_message))) < 0) {
             perror("read failed");
             close(sock);
             pthread_exit(NULL);
         }
 
-        buffer[valread] = '\0';
-        printf("Thread %d (PID: %d) server response: %s\n", thread_id, pid, buffer);
+        // Check if the received message is a GRANT message
+        if (grant_message.type != GRANT_MESSAGE_TYPE) {
+            printf("Thread %d (PID: %d) received an unexpected message\n", thread_id, pid);
+            close(sock);
+            pthread_exit(NULL);
+        }
 
-        // Write PID, number sent, and current time to the file
-        writeToFile(pid, number, buffer);
+        printf("Thread %d (PID: %d) received GRANT message from server\n", thread_id, pid);
+
+        // Simulate the critical section by sleeping for a random time
+        sleep(k);
+
+        // Create the RELEASE message
+        Message release_message;
+        release_message.type = RELEASE_MESSAGE_TYPE;
+        release_message.process_id = thread_id + '0'; // Convert the thread ID to char
+
+        // Send the RELEASE message to the server
+        if (write(sock, &release_message, sizeof(release_message)) < 0) {
+            perror("write failed");
+            close(sock);
+            pthread_exit(NULL);
+        }
+
+        printf("Thread %d (PID: %d) sent RELEASE message\n", thread_id, pid);
+
+        // Write PID, number sent, and server response to the file
+        write_to_file(pid, number, "GRANT");
 
         sleep(k); // Wait for k seconds before sending the next number
     }
