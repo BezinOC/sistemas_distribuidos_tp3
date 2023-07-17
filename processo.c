@@ -110,11 +110,16 @@ void* client_thread(void* arg) {
 
         // Receive the GRANT message from the server
         Message grant_message;
-        if ((valread = read(sock, &grant_message, sizeof(grant_message))) < 0) {
-            perror("read failed");
+        if ((valread = read(sock, &grant_message, sizeof(grant_message))) <= 0) {
+            if (valread < 0) {
+                perror("read failed");
+            } else {
+                printf("Server closed the connection\n");
+            }
             close(sock);
             pthread_exit(NULL);
         }
+
 
         // Check if the received message is a GRANT message
         if (grant_message.type != GRANT_MESSAGE_TYPE) {
@@ -122,6 +127,7 @@ void* client_thread(void* arg) {
             printf("%c\n",grant_message.type);
             close(sock);
             pthread_exit(NULL);
+
         }
 
         printf("Thread %d (PID: %d) received GRANT message from server\n", thread_id, pid);

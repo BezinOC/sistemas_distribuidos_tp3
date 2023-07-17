@@ -18,7 +18,7 @@ int flag = 0;
 typedef struct {
     char type;
     char process_id;
-    char padding[MESSAGE_SIZE]; // Tamanho fixo da mensagem
+    char padding[MESSAGE_SIZE - 3]; // Tamanho fixo da mensagem
 } Message;
 
 // Estrutura de fila de pedidos
@@ -107,48 +107,18 @@ void *handle_client(void *socket_desc) {
             case REQUEST_MESSAGE_TYPE:
                 pthread_mutex_lock(&queue_mutex);
                 enqueue_request(&request_queue, message);
-                pthread_mutex_lock(&rc_mutex);
-                if (!flag) {
-                    flag = 1;
-                    Message next_request = dequeue_request(&request_queue);
-                    Message grant_message;
-                    // Create the Grant message
-                    grant_message.type = GRANT_MESSAGE_TYPE;
-                    grant_message.process_id = next_request.process_id; // Convert the thread ID to char
-                    // Send a GRANT message to the next process in the queue
-                    write(client_socket, &grant_message, sizeof(next_request));
-
-                    printf("Sent GRANT message to Process %c\n", next_request.process_id);
-                }
                 pthread_mutex_unlock(&queue_mutex);
-                pthread_mutex_lock(&rc_mutex);
                 break;
 
             case RELEASE_MESSAGE_TYPE:
-                pthread_mutex_lock(&queue_mutex);
-                pthread_mutex_lock(&stats_mutex);
-                increment_access_count(&access_stats, message.process_id);
-                pthread_mutex_unlock(&stats_mutex);
                 pthread_mutex_lock(&rc_mutex);
                 flag = 0;
-                // Process the next request in the queue, if any
-                if (!is_request_queue_empty(&request_queue)) {
-                    Message next_request = dequeue_request(&request_queue);
-                    Message grant_message;
-                    // Create the Grant message
-                    grant_message.type = GRANT_MESSAGE_TYPE;
-                    grant_message.process_id = next_request.process_id; // Convert the thread ID to char
-                    // Send a GRANT message to the next process in the queue
-                    write(client_socket, &grant_message, sizeof(next_request));
-                    printf("Sent GRANT message to Process %c\n", next_request.process_id);
-                }
-
-                pthread_mutex_unlock(&queue_mutex);
                 pthread_mutex_unlock(&rc_mutex);
-                
                 break;
         }
 
+                
+        
         memset(buffer, 0, sizeof(buffer));
     }
 
@@ -194,6 +164,40 @@ void *interface_thread(void *arg) {
     }
 }
 
+
+void *rc_control_thread(void *socket_desc) {
+    int client_socket = *(int *)socket_desc;
+    char buffer[MESSAGE_SIZE];
+    while (1) {
+        pthread_mutex_lock(&queue_mutex);
+        if(!is_request_queue_empty(&request_queue)){
+            pthread_mutex_lock(&rc_mutex);
+            if (flag == 1){
+                pthread_mutex_unlock(&rc_mutex);
+                pthread_mutex_unlock(&queue_mutex);
+                continue;
+            }
+            flag = 1;
+            pthread_mutex_lock(&stats_mutex);
+            
+            Message next_request = dequeue_request(&request_queue);
+            increment_access_count(&access_stats, next_request.process_id);
+
+            Message grant_message;
+            grant_message.type = GRANT_MESSAGE_TYPE;
+            grant_message.process_id = getpid() + '0';
+
+            // Send a GRANT message to the next process in the queue
+            write(client_socket, &grant_message, sizeof(grant_message));
+            printf("Sent GRANT %c message to Process %c\n", grant_message.type, next_request.process_id);
+
+            pthread_mutex_unlock(&stats_mutex);
+            pthread_mutex_unlock(&rc_mutex);
+            }                
+        pthread_mutex_unlock(&queue_mutex);
+    }
+}
+        
 int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
@@ -261,7 +265,12 @@ int main() {
         *socket_desc = new_socket;
 
         if (pthread_create(&thread_id, NULL, handle_client, (void *)socket_desc) < 0) {
-            perror("pthread_create");
+            perror("pthread_create handle_client");
+            exit(EXIT_FAILURE);
+        }
+        // Create rc_control thread
+        if(pthread_create(&thread_id, NULL, rc_control_thread,  (void *)socket_desc) < 0){
+            perror("pthread_create rc_control");
             exit(EXIT_FAILURE);
         }
 
@@ -273,8 +282,10 @@ int main() {
     }
 
     // Destroy mutexes
+
     pthread_mutex_destroy(&queue_mutex);
     pthread_mutex_destroy(&stats_mutex);
+    pthread_mutex_destroy(&rc_mutex);
 
     return 0;
 }
