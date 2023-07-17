@@ -6,6 +6,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include <pthread.h>
+#include <pthread.h>
+#include <string.h>
+
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
@@ -27,8 +30,8 @@ typedef struct {
     char padding[MESSAGE_SIZE - 3];
 } Message;
 
-void write_to_file(int thread_id, int number, const char* response) {
-    FILE* file = fopen("client_log.txt", "a");
+void write_to_file(int thread_id,  char *response) {
+    FILE* file = fopen("log.txt", "a");
     if (file == NULL) {
         perror("Error opening file");
         return;
@@ -45,10 +48,9 @@ void write_to_file(int thread_id, int number, const char* response) {
     // Format the date as DD/MM/YYYY
     char dateStr[20];
     strftime(dateStr, sizeof(dateStr), "%d/%m/%Y", localtime(&tv.tv_sec));
-
-    fprintf(file, "Thread ID: %d, Number Sent: %d, Time: %s %s, Response: %s\n",
-            thread_id, number, timeStr, dateStr, response);
-
+   
+    fprintf(file, "Thread ID: %d, Time: %s %s, sent %s message\n",
+            thread_id, timeStr, dateStr, response);
     fclose(file);
 }
 
@@ -100,10 +102,8 @@ void* client_thread(void* arg) {
     printf("Thread %d connected to server\n", thread_id);
 
     for (int i = 1; i <= r; i++) {
-        int number = rand() % 20 + 1; // Generate a random number between 1 and 20
 
         // Send the REQUEST message to the server
-        printf("Thread %d sending type %c\n", thread_id, request_message.type);
         if (write(sock, &request_message, sizeof(request_message)) < 0) {
             perror("write failed");
             close(sock);
@@ -111,7 +111,7 @@ void* client_thread(void* arg) {
         }
 
         // Write thread ID, number sent, and request message to the file
-        write_to_file(thread_id, number, "REQUEST");
+        write_to_file(thread_id, "REQUEST");
 
         // Receive the GRANT message from the server
         Message grant_message;
@@ -136,13 +136,12 @@ void* client_thread(void* arg) {
         printf("Thread %d received GRANT message from server\n", thread_id);
 
         // Write thread ID, number sent, and server response to the file
-        write_to_file(thread_id, number, "GRANT");
+        write_to_file(thread_id, "GRANT");
 
         // Simulate the critical section by sleeping for a random time
         sleep(k);
 
         // Send the RELEASE message to the server
-        printf("Thread %d sending type %c\n", thread_id, release_message.type);
         if (write(sock, &release_message, sizeof(release_message)) < 0) {
             perror("write failed");
             close(sock);
@@ -152,7 +151,7 @@ void* client_thread(void* arg) {
         printf("Thread %d sent RELEASE message\n", thread_id);
 
         // Write thread ID, number sent, and request message to the file
-        write_to_file(thread_id, number, "RELEASE");
+        write_to_file(thread_id,"RELEASE");
     }
 
     close(sock);

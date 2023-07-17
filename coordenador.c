@@ -165,11 +165,6 @@ void *interface_thread(void *arg) {
 
             case 3:
                 printf("Exiting...\n");
-                pthread_mutex_lock(&queue_mutex);
-                pthread_mutex_lock(&rc_mutex);
-                flag = 0;
-                pthread_mutex_unlock(&rc_mutex);
-                pthread_mutex_unlock(&queue_mutex);
                 pthread_exit(NULL);
         }
     }
@@ -203,7 +198,7 @@ void *rc_control_thread(void *socket_desc) {
                 pthread_exit(NULL);
             }
 
-            printf("Sent GRANT %c message to Process %c\n", grant_message.type, next_request.process_id);
+            printf("Sent GRANT message to Process %c\n", next_request.process_id);
         }
         pthread_mutex_unlock(&rc_mutex);
 

@@ -116,3 +116,10 @@ Thread ID: 4, Number Sent: 16, Time: 19:32:15:223 17/07/2023, Response: RELEASE
 Thread ID: 4, Number Sent: 1, Time: 19:32:15:223 17/07/2023, Response: REQUEST
 Thread ID: 3, Number Sent: 12, Time: 19:32:15:224 17/07/2023, Response: GRANT
 Thread ID: 3, Number Sent: 12, Time: 19:32:17:225 17/07/2023, Response: RELEASE
+PID: 47623, Number Sent: 20, Time: 19:51:11:699 17/07/2023, Response: REQUEST
+PID: 47623, Number Sent: 15, Time: 19:51:11:699 17/07/2023, Response: REQUEST
+PID: 47623, Number Sent: 19, Time: 19:51:11:699 17/07/2023, Response: REQUEST
+PID: 47623, Number Sent: 5, Time: 19:51:11:699 17/07/2023, Response: REQUEST
+PID: 47623, Number Sent: 19, Time: 19:51:11:700 17/07/2023, Response: GRANT
+PID: 47623, Number Sent: 19, Time: 19:51:13:700 17/07/2023, Response: RELEASE
+PID: 47623, Number Sent: 6, Time: 19:51:13:700 17/07/2023, Response: REQUEST
