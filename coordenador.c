@@ -4,6 +4,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <errno.h>
 
 #define PORT 8080
 #define MAX_CLIENTS 5
@@ -12,7 +13,6 @@
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
 #define RELEASE_MESSAGE_TYPE '3'
-int flag = 0;
 
 // Estrutura de mensagem
 typedef struct {
@@ -34,11 +34,13 @@ typedef struct {
     int process_counts[MAX_CLIENTS];
 } AccessStats;
 
-pthread_mutex_t queue_mutex; // Mutex para acessar a fila de pedidos
-pthread_mutex_t rc_mutex; // Mutex para acessar acessar rc
+pthread_mutex_t queue_mutex;
+pthread_mutex_t buffer_mutex; // Mutex para acessar a fila de pedidos
+pthread_mutex_t rc_mutex; // Mutex para acessar rc
 pthread_mutex_t stats_mutex; // Mutex para acessar as estatísticas de acesso
 RequestQueue request_queue;   // Fila de pedidos
 AccessStats access_stats;     // Estatísticas de acesso
+int flag = 0;
 
 void initialize_request_queue(RequestQueue *queue) {
     queue->front = 0;
@@ -90,6 +92,8 @@ void *handle_client(void *socket_desc) {
         if ((valread = read(client_socket, buffer, sizeof(buffer))) <= 0) {
             if (valread == 0) {
                 printf("Client disconnected\n");
+            } else if (errno == ECONNRESET) {
+                printf("Client connection reset\n");
             } else {
                 perror("read");
             }
@@ -97,13 +101,15 @@ void *handle_client(void *socket_desc) {
         }
 
         Message message;
+
+        pthread_mutex_lock(&buffer_mutex);
         memcpy(&message, buffer, sizeof(message));
+        pthread_mutex_unlock(&buffer_mutex);
 
         printf("Received message from Process %c: Type: %c\n", message.process_id, message.type);
 
         // Process the message based on its type
         switch (message.type) {
-            
             case REQUEST_MESSAGE_TYPE:
                 pthread_mutex_lock(&queue_mutex);
                 enqueue_request(&request_queue, message);
@@ -117,9 +123,9 @@ void *handle_client(void *socket_desc) {
                 break;
         }
 
-                
-        
+        pthread_mutex_lock(&buffer_mutex);
         memset(buffer, 0, sizeof(buffer));
+        pthread_mutex_unlock(&buffer_mutex);
     }
 
     close(client_socket);
@@ -159,45 +165,53 @@ void *interface_thread(void *arg) {
 
             case 3:
                 printf("Exiting...\n");
+                pthread_mutex_lock(&queue_mutex);
+                pthread_mutex_lock(&rc_mutex);
+                flag = 0;
+                pthread_mutex_unlock(&rc_mutex);
+                pthread_mutex_unlock(&queue_mutex);
                 pthread_exit(NULL);
         }
     }
 }
 
-
 void *rc_control_thread(void *socket_desc) {
     int client_socket = *(int *)socket_desc;
-    char buffer[MESSAGE_SIZE];
+
+    Message grant_message;
+    grant_message.type = GRANT_MESSAGE_TYPE;
+    grant_message.process_id = getpid() + '0';
+
     while (1) {
-        pthread_mutex_lock(&queue_mutex);
-        if(!is_request_queue_empty(&request_queue)){
-            pthread_mutex_lock(&rc_mutex);
-            if (flag == 1){
-                pthread_mutex_unlock(&rc_mutex);
-                pthread_mutex_unlock(&queue_mutex);
-                continue;
-            }
+        pthread_mutex_lock(&rc_mutex);
+        if (flag == 0 && !is_request_queue_empty(&request_queue)) {
             flag = 1;
+
+            pthread_mutex_lock(&queue_mutex);
             pthread_mutex_lock(&stats_mutex);
-            
+
             Message next_request = dequeue_request(&request_queue);
             increment_access_count(&access_stats, next_request.process_id);
 
-            Message grant_message;
-            grant_message.type = GRANT_MESSAGE_TYPE;
-            grant_message.process_id = getpid() + '0';
+            pthread_mutex_unlock(&stats_mutex);
+            pthread_mutex_unlock(&queue_mutex);
 
             // Send a GRANT message to the next process in the queue
-            write(client_socket, &grant_message, sizeof(grant_message));
-            printf("Sent GRANT %c message to Process %c\n", grant_message.type, next_request.process_id);
+            if (write(client_socket, &grant_message, sizeof(grant_message)) < 0) {
+                perror("write failed");
+                close(client_socket);
+                pthread_exit(NULL);
+            }
 
-            pthread_mutex_unlock(&stats_mutex);
-            pthread_mutex_unlock(&rc_mutex);
-            }                
-        pthread_mutex_unlock(&queue_mutex);
+            printf("Sent GRANT %c message to Process %c\n", grant_message.type, next_request.process_id);
+        }
+        pthread_mutex_unlock(&rc_mutex);
+
+        // Add a small delay to avoid busy waiting
+        usleep(1000);
     }
 }
-        
+
 int main() {
     int server_fd, new_socket;
     struct sockaddr_in address;
@@ -247,6 +261,7 @@ int main() {
     // Initialize mutexes
     pthread_mutex_init(&queue_mutex, NULL);
     pthread_mutex_init(&stats_mutex, NULL);
+    pthread_mutex_init(&rc_mutex, NULL);
 
     // Create interface thread
     pthread_create(&thread_id, NULL, interface_thread, NULL);
@@ -264,25 +279,34 @@ int main() {
         int *socket_desc = malloc(sizeof(int));
         *socket_desc = new_socket;
 
-        if (pthread_create(&thread_id, NULL, handle_client, (void *)socket_desc) < 0) {
+        pthread_t client_thread_id, rc_control_thread_id;
+
+        if (pthread_create(&client_thread_id, NULL, handle_client, (void *)socket_desc) < 0) {
             perror("pthread_create handle_client");
             exit(EXIT_FAILURE);
         }
-        // Create rc_control thread
-        if(pthread_create(&thread_id, NULL, rc_control_thread,  (void *)socket_desc) < 0){
+
+        if (pthread_create(&rc_control_thread_id, NULL, rc_control_thread, (void *)socket_desc) < 0) {
             perror("pthread_create rc_control");
             exit(EXIT_FAILURE);
         }
 
-        // Detach the thread so that it cleans up automatically when it exits
-        if (pthread_detach(thread_id) != 0) {
+        // Detach the threads so that they clean up automatically when they exit
+        if (pthread_detach(client_thread_id) != 0) {
+            perror("pthread_detach");
+            exit(EXIT_FAILURE);
+        }
+
+        if (pthread_detach(rc_control_thread_id) != 0) {
             perror("pthread_detach");
             exit(EXIT_FAILURE);
         }
     }
 
-    // Destroy mutexes
+    // Close the server socket
+    close(server_fd);
 
+    // Destroy mutexes
     pthread_mutex_destroy(&queue_mutex);
     pthread_mutex_destroy(&stats_mutex);
     pthread_mutex_destroy(&rc_mutex);
