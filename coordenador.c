@@ -268,7 +268,7 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
-        printf("New client connected\n");
+        printf("New Connection established! Client socket ID: %d\n", new_socket);
 
         // Create a new thread to handle the client communication
         int *socket_desc = malloc(sizeof(int));

@@ -141,7 +141,7 @@ void* client_thread(void* arg) {
         }
         printf("Thread %d sent RELEASE message\n", thread_id);
     }
-
+    // sleep(k + 2);
     close(sock);
     pthread_exit(NULL);
 }
@@ -152,7 +152,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int n = atoi(argv[1]);
+    int n = 1;
+    int control_pid = atoi(argv[1]);
     int r = atoi(argv[2]);
     int k = atoi(argv[3]);
 
@@ -160,7 +161,7 @@ int main(int argc, char* argv[]) {
     ThreadArgs thread_args[n];
 
     for (int i = 0; i < n; i++) {
-        thread_args[i].thread_id = i + 1;
+        thread_args[i].thread_id = control_pid;
         thread_args[i].r = r;
         thread_args[i].k = k;
 
