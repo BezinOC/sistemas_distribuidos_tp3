@@ -11,7 +11,7 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
-#define MESSAGE_SIZE 1024
+#define MESSAGE_SIZE 64
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
@@ -30,7 +30,7 @@ typedef struct {
 } Message;
 
 // Writing in the file function
-void write_to_file(int thread_id,  char *response) {
+void write_to_file(int thread_id,  char *response, int k) {
     FILE* file = fopen("log.txt", "a");
     if (file == NULL) {
         perror("Error opening file");
@@ -50,6 +50,7 @@ void write_to_file(int thread_id,  char *response) {
     fprintf(file, "Thread ID: %d, Time: %s %s, sent %s message\n",
             thread_id, timeStr, dateStr, response);
     fclose(file);
+    // sleep(k);
 }
 
 // Define Client Thread Function
@@ -63,16 +64,6 @@ void* client_thread(void* arg) {
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
     char buffer[BUFFER_SIZE] = {0};
-
-    // Create the REQUEST message
-    Message request_message;
-    request_message.type = REQUEST_MESSAGE_TYPE;
-    request_message.process_id = thread_id + '0'; // Convert the thread ID to char
-
-    // Create the RELEASE message
-    Message release_message;
-    release_message.type = RELEASE_MESSAGE_TYPE;
-    release_message.process_id = thread_id + '0'; // Convert the thread ID to char
 
     // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -102,6 +93,9 @@ void* client_thread(void* arg) {
     for (int i = 1; i <= r; i++) {
 
         // Send the REQUEST message to the server
+        Message request_message;
+        request_message.type = REQUEST_MESSAGE_TYPE;
+        request_message.process_id = thread_id + '0'; // Convert the thread ID to char
         if (write(sock, &request_message, sizeof(request_message)) < 0) {
             perror("write failed client request");
             close(sock);
@@ -130,10 +124,14 @@ void* client_thread(void* arg) {
         printf("Thread %d received GRANT message from server\n", thread_id);
 
         // Write in the file and simulate the critical section by sleeping for K seconds
-        write_to_file(thread_id, "GRANT");
-        sleep(k);
+        write_to_file(thread_id, "GRANT", k);
 
         // Send the RELEASE message to the server
+        
+        // Create the RELEASE message
+        Message release_message;
+        release_message.type = RELEASE_MESSAGE_TYPE;
+        release_message.process_id = thread_id + '0'; // Convert the thread ID to char
         if (write(sock, &release_message, sizeof(release_message)) < 0) {
             perror("write failed release client");
             close(sock);
