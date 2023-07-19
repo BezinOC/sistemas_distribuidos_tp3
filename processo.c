@@ -50,7 +50,7 @@ void write_to_file(int thread_id,  char *response, int k) {
     fprintf(file, "Thread ID: %d, Time: %s %s, sent %s message\n",
             thread_id, timeStr, dateStr, response);
     fclose(file);
-    // sleep(k);
+    
 }
 
 // Define Client Thread Function
@@ -125,6 +125,7 @@ void* client_thread(void* arg) {
 
         // Write in the file and simulate the critical section by sleeping for K seconds
         write_to_file(thread_id, "GRANT", k);
+        sleep(k);
 
         // Send the RELEASE message to the server
         
