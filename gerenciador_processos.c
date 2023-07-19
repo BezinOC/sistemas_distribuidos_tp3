@@ -24,8 +24,13 @@ int main(int argc, char* argv[]) {
     pthread_t threads[n];
 
     for (int i = 0; i < n; i++) {
-        char command[256];
-        snprintf(command, sizeof(command), "./processo %d %d %d", i+1, r, k);
+        char* command = (char*)malloc(256 * sizeof(char));
+        if (command == NULL) {
+            perror("Error allocating memory");
+            exit(1);
+        }
+        int pos = i + 1;
+        snprintf(command, 256, "./processo %d %d %d", pos, r, k);
         pthread_create(&threads[i], NULL, callScript, (void*)command);
     }
 

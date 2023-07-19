@@ -11,7 +11,7 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
-#define MESSAGE_SIZE 10
+#define MESSAGE_SIZE 1024
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
@@ -26,7 +26,7 @@ typedef struct {
 typedef struct {
     char type;
     char process_id;
-    char padding[MESSAGE_SIZE - 3];
+    int socket_id;
 } Message;
 
 // Writing in the file function
@@ -103,7 +103,7 @@ void* client_thread(void* arg) {
 
         // Send the REQUEST message to the server
         if (write(sock, &request_message, sizeof(request_message)) < 0) {
-            perror("write failed");
+            perror("write failed client request");
             close(sock);
             pthread_exit(NULL);
         }
@@ -119,7 +119,7 @@ void* client_thread(void* arg) {
             close(sock);
             pthread_exit(NULL);
         }
-
+        //printf("%c", grant_message.type);
         // Check if the received message is a GRANT message
         if (grant_message.type != GRANT_MESSAGE_TYPE) {
             printf("Thread %d received an unexpected message\n", thread_id);
@@ -135,15 +135,14 @@ void* client_thread(void* arg) {
 
         // Send the RELEASE message to the server
         if (write(sock, &release_message, sizeof(release_message)) < 0) {
-            perror("write failed");
+            perror("write failed release client");
             close(sock);
             pthread_exit(NULL);
         }
         printf("Thread %d sent RELEASE message\n", thread_id);
     }
-    // sleep(k + 2);
     close(sock);
-    pthread_exit(NULL);
+    return(NULL);
 }
 
 int main(int argc, char* argv[]) {
@@ -157,26 +156,36 @@ int main(int argc, char* argv[]) {
     int r = atoi(argv[2]);
     int k = atoi(argv[3]);
 
-    pthread_t threads[n];
-    ThreadArgs thread_args[n];
+    pid_t pid = getpid();
+    printf("PID da Thread %d: %d\n", control_pid, pid);
 
-    for (int i = 0; i < n; i++) {
-        thread_args[i].thread_id = control_pid;
-        thread_args[i].r = r;
-        thread_args[i].k = k;
+    // pthread_t threads[n];
 
-        if (pthread_create(&threads[i], NULL, client_thread, &thread_args[i]) != 0) {
-            perror("pthread_create");
-            return 1;
-        }
-    }
+    ThreadArgs thread_args;
+    
+    thread_args.thread_id = control_pid;
+    thread_args.r = r;
+    thread_args.k = k;
+    
+    client_thread(&thread_args);
 
-    for (int i = 0; i < n; i++) {
-        if (pthread_join(threads[i], NULL) != 0) {
-            perror("pthread_join");
-            return 1;
-        }
-    }
+    // for (int i = 0; i < n; i++) {
+    //     thread_args[i].thread_id = control_pid;
+    //     thread_args[i].r = r;
+    //     thread_args[i].k = k;
+
+    //     if (pthread_create(&threads[i], NULL, client_thread, &thread_args[i]) != 0) {
+    //         perror("pthread_create");
+    //         return 1;
+    //     }
+    // }
+
+    // for (int i = 0; i < n; i++) {
+    //     if (pthread_join(threads[i], NULL) != 0) {
+    //         perror("pthread_join");
+    //         return 1;
+    //     }
+    // }
 
     return 0;
 }
