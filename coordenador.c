@@ -7,8 +7,8 @@
 #include <errno.h>
 
 #define PORT 8080
-#define MAX_CLIENTS 5
-#define MESSAGE_SIZE 64
+#define MAX_CLIENTS 4
+#define MESSAGE_SIZE 8
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'

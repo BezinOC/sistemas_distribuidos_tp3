@@ -11,7 +11,7 @@
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
-#define MESSAGE_SIZE 64
+#define MESSAGE_SIZE 8
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
