@@ -10,8 +10,8 @@
 #include <string.h>
 
 #define PORT 8080
-#define BUFFER_SIZE 1024
-#define MESSAGE_SIZE 8
+#define BUFFER_SIZE 256
+#define MESSAGE_SIZE sizeof(Message)
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
@@ -63,7 +63,8 @@ void* client_thread(void* arg) {
 
     int sock = 0, valread;
     struct sockaddr_in serv_addr;
-    char buffer[BUFFER_SIZE] = {0};
+    // char buffer[BUFFER_SIZE] = {0};
+    char* buffer = (char*)malloc(MESSAGE_SIZE * sizeof(char));
 
     // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -96,6 +97,9 @@ void* client_thread(void* arg) {
         Message request_message;
         request_message.type = REQUEST_MESSAGE_TYPE;
         request_message.process_id = thread_id + '0'; // Convert the thread ID to char
+
+        memcpy(buffer, &request_message, sizeof(request_message));
+
         if (write(sock, &request_message, sizeof(request_message)) < 0) {
             perror("write failed client request");
             close(sock);
@@ -140,6 +144,7 @@ void* client_thread(void* arg) {
         }
         printf("Thread %d sent RELEASE message\n", thread_id);
     }
+    free(buffer);
     close(sock);
     return(NULL);
 }

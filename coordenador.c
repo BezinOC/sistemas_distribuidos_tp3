@@ -7,8 +7,8 @@
 #include <errno.h>
 
 #define PORT 8080
-#define MAX_CLIENTS 4
-#define MESSAGE_SIZE 8
+#define MAX_CLIENTS 128
+#define MESSAGE_SIZE sizeof(Message)
 #define SEPARATOR '|'
 #define REQUEST_MESSAGE_TYPE '1'
 #define GRANT_MESSAGE_TYPE '2'
@@ -95,9 +95,11 @@ void *handle_client(void *socket_desc) {
     int client_socket = *(int *)socket_desc;
     socket_msg.client_socket = client_socket;
 
+    char* buffer = (char*)malloc(MESSAGE_SIZE * sizeof(char));
+
     while (1) {
         // Receive the message from the client
-        if ((valread = read(socket_msg.client_socket, socket_msg.buffer, sizeof(socket_msg.buffer))) <= 0) {
+        if ((valread = read(socket_msg.client_socket, buffer, sizeof(socket_msg.buffer))) <= 0) {
             if (valread == 0) {
                 printf("Client disconnected\n");
             } else if (errno == ECONNRESET) {
@@ -113,6 +115,10 @@ void *handle_client(void *socket_desc) {
         pthread_mutex_lock(&buffer_mutex);
         memcpy(&message, socket_msg.buffer, sizeof(message));
         pthread_mutex_unlock(&buffer_mutex);
+
+        message.type = buffer[0];
+        message.process_id = buffer[1];
+        message.socket_id = buffer[2];
 
         // Store the socket descriptor value in the socket_id field of the received message
         message.socket_id = socket_msg.client_socket;
@@ -138,6 +144,7 @@ void *handle_client(void *socket_desc) {
         pthread_mutex_unlock(&buffer_mutex);
     }
 
+    free(buffer);
     close(client_socket);
     free(socket_desc);
     pthread_exit(NULL);
